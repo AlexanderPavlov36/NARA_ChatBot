@@ -9,7 +9,7 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 1.2. Load the model for generating text embeddings.
 
 **Phase 2 — Define data structure**  
-2.1. Define functions to process different record types.  
+2.1. Define functions to process different record types.
 2.2. For each record type, define the corresponding schemas to access data in the JSON structure.
 
 **Phase 3 — Source data processing**  
