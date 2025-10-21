@@ -66,14 +66,16 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 3.1. Formulate a Cypher query to search the Neo4j graph:  
 - 3.1.1. Find text nodes and expand context via `Next` relationships.  
 - 3.1.2. Extract the document hierarchy via `Includes` relationships.  
-- 3.1.3. Collect related authoritative records.  
+- 3.1.3. Collect related authoritative records.
+ 
 3.2. Create a vector store based on the existing Neo4j graph.  
 3.3. Use semantic search over embeddings to find relevant documents.
 
 **Phase 4 — Query classification and answer generation**  
 4.1. Classify the incoming query into one of two types:  
 - `show_records` — a direct request to show records.  
-- `question` — an informational question that requires an answer based on context.  
+- `question` — an informational question that requires an answer based on context.
+
 4.2. For `show_records` queries, produce a structured list of found materials.  
 4.3. For `question` queries:  
 - 4.3.1. Construct a context from titles and texts of relevant documents.  
