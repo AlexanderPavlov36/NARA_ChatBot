@@ -59,7 +59,7 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 - 1.3.2. The language model for answer generation.
 
 **Phase 2 — Embeddings components setup**  
-2.1. Create an `Embeddings` class to convert texts into vector representations.
+2.1. Create an `Embeddings` class to convert texts into vector representations.  
 2.2. Configure the pipeline for text generation.
 
 **Phase 3 — Retrieve relevant documents**  
