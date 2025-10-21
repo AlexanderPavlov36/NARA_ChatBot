@@ -66,7 +66,7 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 3.1. Formulate a Cypher query to search the Neo4j graph:  
 - 3.1.1. Find text nodes and expand context via `Next` relationships.  
 - 3.1.2. Extract the document hierarchy via `Includes` relationships.
-- 3.1.3. Collect related authoritative records.
+- 3.1.3. Collect related authority records.
 
 3.2. Create a vector store based on the existing Neo4j graph.  
 3.3. Use semantic search over embeddings to find relevant documents.
@@ -87,7 +87,7 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 5.2. For each document, include:  
 - 5.2.1. Core information with dates and type.  
 - 5.2.2. The hierarchy of records above it.  
-- 5.2.3. Related authoritative records with clickable links.
+- 5.2.3. Related authority records with clickable links.
 
 # Flowchart Diagram
 ![Flowchart Diagram](flowchart_diagram.svg)
