@@ -1,40 +1,38 @@
-# Developing a Prototype GraphRAG-Based Chat Interface for Enhanced Access to National Archives and Records Administration Documents
+# Разработка прототипа чат-интерфейса на основе GraphRAG для упрощения доступа к документам Национального управления архивов и документации США
 
-The prototype is a chat interface based on **GraphRAG** that builds and uses a knowledge graph created from the National Archives Catalog dataset to answer natural-language questions by retrieving relevant document passages and constraining LLM generation to the provided context. At its core is a Neo4j knowledge graph with text nodes, vector embeddings and a vector index; retrieval is implemented as a hybrid of semantic embedding search + retrieval query.
+# Алгоритм создания KG
 
-# Knowledge Graph Construction Algorithm
+**Этап 1 — Подготовка**  
+1.1. Импортируются необходимые библиотеки.  
+1.2. Загружается модель для создания текстовых эмбеддингов.
 
-**Phase 1 — Preparation**  
-1.1. Import required libraries.  
-1.2. Load the model for generating text embeddings.
+**Этап 2 — Определение структуры данных**  
+2.1. Определяются функции для обработки различных типов записей.  
+2.2. Для каждого типа записи определяются соответствующие схемы для получения доступа к данным в JSON-структуре.
 
-**Phase 2 — Define data structure**  
-2.1. Define functions to process different record types.  
-2.2. For each record type, define the corresponding schemas to access data in the JSON structure.
+**Этап 3 — Обработка исходных данных**  
+3.1. Извлекаются JSONL-файлы.  
+3.2. Для каждой записи:  
+- 3.2.1. Извлекаются основные данные согласно определенным схемам.  
+- 3.2.2. Обрабатываются иерархические связи.  
+- 3.2.3. Формируется текстовое поле.  
+- 3.2.4. Длинные тексты разбиваются на чанки.
 
-**Phase 3 — Source data processing**  
-3.1. Extract JSONL files.  
-3.2. For each record:  
-- 3.2.1. Extract core data according to the defined schemas.  
-- 3.2.2. Process hierarchical relationships.  
-- 3.2.3. Build the textual field.  
-- 3.2.4. Split long texts into chunks.
+**Этап 4 — Создание узлов в графе**  
+4.1. В соответствии со схемой для каждого узла создаются атрибуты на основе обработанных данных.  
+4.2. Создаются ограничения для обеспечения уникальности `chunkId`.
 
-**Phase 4 — Create graph nodes**  
-4.1. For each node, create attributes based on the processed data according to the schema.  
-4.2. Create constraints to ensure uniqueness of `chunkId`.
+**Этап 5 — Создание эмбеддингов**  
+5.1. Для всех узлов, содержащих текст, создаются эмбеддинги.  
+5.2. Эмбеддинги сохраняются как атрибуты узлов для последующего семантического поиска.  
+5.3. Создается векторный индекс для эффективного поиска.
 
-**Phase 5 — Create embeddings**  
-5.1. Generate vector embeddings for all nodes that contain text.  
-5.2. Save embeddings as node attributes for later semantic search.  
-5.3. Create a vector index for efficient search.
+**Этап 6 — Создание отношений между узлами**  
+6.1. Создаются отношения с лейблом `Next` между чанками одного документа.  
+6.2. Создаются отношения с лейблом `Includes` на основе информации об иерархических связях.  
+6.3. Создаются дополнительные отношения между узлами на основе значений атрибута `naId`.
 
-**Phase 6 — Create relationships between nodes**  
-6.1. Create `Next` relationships between chunks of the same document.  
-6.2. Create `Includes` relationships based on hierarchical information.  
-6.3. Create additional relationships between nodes based on the `naId` attribute values.
-
-# List of attributes created for each node type
+# Перечень атрибутов, создаваемых для каждого типа узлов
 
 | **Entity** | **Properties** |
 |-------------|----------------|
@@ -49,51 +47,205 @@ The prototype is a chat interface based on **GraphRAG** that builds and uses a k
 | specificRecordsTypes | file_name, line_num, authorityType, naId_broaderTerms, name_broaderTerms, heading, importRecordControlNumber, specificRecordsType_linkCounts, subject_linkCounts, totalDescription_linkCounts, naId, naId_narrowerTerms, heading_narrowerTerms, recordType, recordSource, naId_relatedTerms, heading_relatedTerms, scopeNote, sourceNotes, useFor, text, chunkSeqId, chunkId, source |
 | topicalSubject | file_name, line_num, authorityType, naId_broaderTerms, name_broaderTerms, heading, subject_linkCounts, topicalSubject_linkCounts, totalDescription_linkCounts, naId, naId_narrowerTerms, heading_narrowerTerms, naId_relatedTerms, heading_relatedTerms, recordType, recordSource, scopeNote, sourceNotes, useFor, text, chunkSeqId, chunkId, source |
 
-# Chat Interface Workflow
+# Алгоритм работы чат-интерфейса
 
-**Phase 1 — System initialization**  
-1.1. Load environment variables for connecting to Neo4j and Hugging Face.  
-1.2. Detect the available compute device (CPU/GPU).  
-1.3. Load two models:  
-- 1.3.1. The model for embedding generation.  
-- 1.3.2. The language model for answer generation.
+**Этап 1 — Инициализация системы**  
+1.1. Загружаются переменные окружения для подключения к Neo4j и Hugging Face.  
+1.2. Определяется доступное вычислительное устройство (CPU/GPU).  
+1.3. Загружаются две модели:  
+- 1.3.1. Модель для создания эмбеддингов.  
+- 1.3.2. Языковая модель для генерации ответов.
 
-**Phase 2 — Embeddings components setup**  
-2.1. Create an `Embeddings` class to convert texts into vector representations.  
-2.2. Configure the pipeline for text generation.
+**Этап 2 — Настройка компонентов для работы**  
+2.1. Создается экземпляр класса `Embeddings` для преобразования текстов в векторные представления.  
+2.2. Настраивается пайплайн для генерации текста.
 
-**Phase 3 — Retrieve relevant documents**  
-3.1. Formulate a Cypher query to search the Neo4j graph:  
-- 3.1.1. Find text nodes and expand context via `Next` relationships.  
-- 3.1.2. Extract the document hierarchy via `Includes` relationships.
-- 3.1.3. Collect related authority records.
+**Этап 3 — Поиск релевантных документов**  
+3.1. Формируется Cypher-запрос для поиска в графе Neo4j:  
+- 3.1.1. Находит узлы с текстом и расширяет контекст через отношения `Next`.  
+- 3.1.2. Извлекает иерархическую структуру документов через отношения `Includes`.  
+- 3.1.3. Собирает связанные авторитетные записи.  
 
-3.2. Create a vector store based on the existing Neo4j graph.  
-3.3. Use semantic search over embeddings to find relevant documents.
+3.2. Создается векторное хранилище на основе существующего графа Neo4j.  
+3.3. Используется семантический поиск по эмбеддингам для нахождения релевантных документов.
 
-**Phase 4 — Query classification and answer generation**  
-4.1. Classify the incoming query into one of two types:  
-- `show_records` — a direct request to show records.  
-- `question` — an informational question that requires an answer based on context.
+**Этап 4 — Классификация запроса и генерация ответа**  
+4.1. Запрос классифицируется на два типа:  
+- `show_records` — прямой запрос на показ записей.  
+- `question` — информационный запрос, требующий ответа на основе контекста.  
 
-4.2. For `show_records` queries, produce a structured list of found materials.  
-4.3. For `question` queries:  
-- 4.3.1. Construct a context from titles and texts of relevant documents.  
-- 4.3.2. Generate an answer with a strict constraint to use only information from the context.  
-- 4.3.3. If no answer exists in the context, return a standard "no data" message.
+4.2. Для запросов типа `show_records` формируется структурированный список найденных материалов.  
+4.3. Для запросов типа `question`:  
+- 4.3.1. Создается контекст из заголовков и текстов релевантных документов.  
+- 4.3.2. Генерируется ответ со строгим ограничением использовать только информацию из контекста.  
+- 4.3.3. При отсутствии ответа в контексте возвращается стандартное сообщение.
 
-**Phase 5 — Formatting and presenting results**  
-5.1. Format data as dialog "bubbles".  
-5.2. For each document, include:  
-- 5.2.1. Core information with dates and type.  
-- 5.2.2. The hierarchy of records above it.  
-- 5.2.3. Related authority records with clickable links.
+**Этап 5 — Форматирование и отображение результатов**  
+5.1. Данные форматируются в виде диалоговых «пузырей».  
+5.2. Для каждого документа формируется:  
+- 5.2.1. Основная информация с датами и типом.  
+- 5.2.2. Иерархия записей, стоящих выше в иерархии.  
+- 5.2.3. Связанные авторитетные записи с кликабельными ссылками.
 
-# Flowchart Diagram
-![Flowchart Diagram](flowchart_diagram.svg)
-# Retrieval query
-![Retrieval Query](retrieval_query.svg)
+# Retrieval Query
+
+```python
+retrieval_query = """
+MATCH (node:recordWithText)
+CALL (node) {
+    MATCH window = (:recordWithText)-[:Next*0..1]->(node)-[:Next*0..1]->(:recordWithText)
+    WITH window
+    ORDER BY length(window) DESC
+    LIMIT 1
+    RETURN window AS longestWindow
+}
+WITH node, score, longestWindow
+WITH nodes(longestWindow) AS chunkList, node, score
+UNWIND chunkList AS chunkRows
+WITH collect(chunkRows.text) AS textList, node, score
+MATCH (firstNode)
+WHERE firstNode.naId = node.naId AND firstNode.chunkSeqId = 0
+OPTIONAL MATCH path = (root)-[:Includes*0..]->(firstNode)
+WHERE NOT (root)<-[:Includes]-()
+OPTIONAL MATCH (relatedNode)-[
+    :broaderTerm
+    |:contributor
+    |:creator
+    |:subject
+    |:donor
+    |:narrowerTerm
+    |:organizationalReference
+    |:relatedTerm
+    |:jurisdiction
+    |:organizationName
+    |:personalReference
+]->(firstNode)
+WITH
+    textList, node, score,
+    COLLECT(DISTINCT relatedNode {.authorityType, .heading, .source}) AS relatedAuthorities,
+    firstNode,
+    path
+WITH
+    textList, node, score, relatedAuthorities,
+    CASE firstNode.recordType
+        WHEN 'description' THEN 
+            [n IN reverse(nodes(path)) | n {
+                .recordType,
+                .levelOfDescription,
+                .title,
+                .logicalDate_coverageStartDate,
+                .logicalDate_coverageEndDate,
+                .source
+            }]
+        WHEN 'authority' THEN
+            [n IN nodes(path) | n {
+                .recordType,
+                .authorityType,
+                .heading,
+                .source
+            }]
+    END AS pathNodes
+RETURN
+    apoc.text.join(textList, "\n") AS text,
+    score,
+    {
+        path_nodes: pathNodes, 
+        score: score,
+        related_authorities: relatedAuthorities
+    } AS metadata
+"""
+```
+
 # Classification Prompt
-![Classiification Prompt](classification_prompt.svg)
+
+```python
+classification_prompt = """
+Classify the type of user request. Reply with only one word:
+- "question": if this is a question that needs an answer;
+- "show_records": if the user is directly asking to display, list, show, etc.
+archival materials/documents/full texts/records/sources.
+
+If the request does NOT explicitly ask to display, list, show, etc., classify as
+"question".
+
+Examples:
+
+Request: Why is the sky blue?
+Output: question
+
+Request: Show me documents about politics.
+Output: show_records
+
+Request: List the sources.
+Output: show_records
+
+Request: Give me all related documents.
+Output: show_records
+
+Request: Who was president in 1952?
+Output: question
+"""
+```
+
 # Answer Prompt
-![Answer Prompt](answer_prompt.svg)
+
+```python
+answer_prompt = """
+Answer the question based ONLY on the provided context.
+Use ONLY information and wording from the context.
+Do NOT add information that is not explicitly stated in the context,
+even if it seems logical or obvious.
+Do NOT include extra information that is present in the context but is not
+directly relevant to the question.
+If the context doesn't contain an answer to the question, say "I cannot
+respond to your request based on the available archival materials."
+Answer in one or maximum two sentences.
+
+Examples:
+
+Context: Title: Discussion with Congressman Y Text: Congressman Y talked
+about his role in a particular panel, highlighting that the working groups
+operate with significant autonomy. He mentioned that the responsibilities are
+extremely intensive, hindering participants from adequately participating in
+additional congressional tasks and attending to their constituencies.
+Question: What did Congressman Y say about the panel's workload?
+Answer: Congressman Y said the responsibilities are extremely intensive,
+hindering participants from adequately participating in additional
+congressional tasks and attending to their constituencies. 
+
+Context: Title: Interview with Legislator B Text: The speaker indicated
+a preference for a collaborative dynamic with federal bureaus, involving
+mutual idea-sharing. Conversely, he portrayed a fellow lawmaker, Mr. Q, who
+often employs aggressive rhetoric and harbors suspicion toward these entities.
+Question: How does the Legislator B's method with bureaus contrast with Mr. Q's?
+Answer: Legislator B favors collaboration and mutual idea-sharing, whereas Mr.
+Q employs aggressive rhetoric and shows suspicion.
+
+Context: Title: Dialogue with Lawmaker C Text: Lawmaker C pointed out that
+an individual with intense personal stakes in a specific issue domain ought not
+to be placed on the task force overseeing it, since they might lack
+impartiality.
+Question: According to Lawmaker C, what kind of individual should avoid
+placement on a task force?
+Answer: An individual with intense personal stakes in a specific issue domain
+should not be placed on the task force overseeing it, as they might lack
+impartiality.
+
+Context: Title: Study Notes on a Task Force Text: The document describes
+assignment to a particular task force as a secondary role due to its divisive
+nature. It emphasizes that participants should secure an additional, more
+favorable position as well.
+Question: Why is assignment to this task force viewed as a secondary role?
+Answer: It is viewed as a secondary role due to its divisive nature, and the
+document emphasizes that participants should secure an additional, more
+favorable position.
+
+Context: Title: Meeting with Senator Z Text: Senator Z discussed the
+procedural hurdles in forming a bipartisan committee, noting that scheduling
+conflicts among senior members have caused significant delays. He expressed
+hope that the committee would be operational by the next fiscal quarter.
+Question: What views did Senator Z express about tax reforms?
+Answer: I cannot respond to your request based on the available archival
+materials.
+"""
+```
