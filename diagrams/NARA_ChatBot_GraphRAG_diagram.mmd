@@ -1,0 +1,83 @@
+---
+config:
+  layout: dagre
+  theme: neutral
+---
+flowchart LR
+ subgraph B["Retrieve Documents"]
+        B1a[("Neo4j Database")]
+        B1["Connect to Neo4j Database"]
+        B2["Execute Retrieval Query with User Request"]
+        B3["Return Relevant Documents"]
+  end
+ subgraph C["Classification Process"]
+        C2["Generate LLM Response"]
+        C1["Prepare Classification Prompt with User Request"]
+        C3{"Request Classification"}
+        C4["Return show_records"]
+        C5["Return question"]
+  end
+ subgraph D["Process Documents"]
+        D1["For Each Document"]
+        D2["Process Source Node, Ancestors Hierarchy, Authoritites and Dates"]
+  end
+ subgraph G["Answer Generation Process"]
+        G1["Create Context for LLM"]
+        G2["Prepare Answer Prompt with User Request"]
+        G3["Generate LLM Response"]
+        G4["Return answer_text"]
+  end
+    B1 --> B1a
+    B1a --> B2
+    B2 --> B3
+    C1 --> C2
+    C2 --> C3
+    C3 -- show_records --> C4
+    C3 -- question --> C5
+    D1 --> D2
+    G1 --> G2
+    G2 --> G3
+    G3 --> G4
+    A["User Input"] --> B
+    B --> C
+    C --> F0{"Any documents found?"}
+    F0 -- No --> F2@{ label: "Return 'I cannot respond to your request based on the available archival materials.'" }
+    F0 -- Yes --> D1
+    D2 --> E{"Request Type?"}
+    E -- show_records --> N@{ label: "Output 'Sure, here are the archival materials related to your request:' Message" }
+    E -- question --> G1
+    G4 --> F@{ label: "Answer is 'I cannot respond...'?" }
+    F -- Yes --> H@{ label: "Add 'You might be interested in the following archival materials:' Header" }
+    H --> O["Add Processed Documents"]
+    F -- No --> J@{ label: "Output Answer with 'The answer was generated based on the following archival materials:' Header" }
+    J --> O
+    N --> O
+    O --> P0["Filter Unique Documents"]
+    F2 --> AA["Format Final Response"]
+    P0 --> AA
+    AA --> BB["Display in Chat Interface"]
+    BB --> CC["Next User Input"]
+    EE["Text Input Field for Request"] -.-> A
+    FF["Send Button"] -.-> A
+    B3@{ shape: docs}
+    A@{ shape: manual-input}
+    F2@{ shape: rect}
+    N@{ shape: rect}
+    F@{ shape: diamond}
+    H@{ shape: rect}
+    O@{ shape: rect}
+    J@{ shape: rect}
+    P0@{ shape: rect}
+    CC@{ shape: manual-input}
+     B1a:::data
+     C3:::decision
+     B:::process
+     C:::process
+     F0:::decision
+     E:::decision
+     F:::decision
+     D:::process
+     G:::process
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef decision fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef data fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
